@@ -24,7 +24,7 @@
 | 11 | Qwen3.6-35B-A3B-oQ4e-mtp | ✅ Done | 8.6 | - | 90 tests pass · 1M add 1.5s · 1M sparse dep 2.6s<br><br>**Serving:** 3h total · 12M prefill · 11.4M cached (94.8% eff.) · 199.1 TPS avg · 31.9 TPS gen |
 | 12 | Qwen3.8-27B-oQ4e-mtp | ✅ Done | 48.1 | - | 56 tests pass · 1M ingest 1.0s · 10k peeks <1ms · diamond drain 100k in 44.9s<br><br>**Serving:** 8h total · 22.26M prefill · 21.16M cached (95% eff.) · 74.6 TPS avg · 12.6 TPS gen |
 | 13 | hermitdave--K2-Horizon-7B-Uno-merged | ➖ Not run | - | - | Same model as #4 — the K2-Horizon-7B attempt (row 4) already used the Uno-merged weights. No separate run. |
-| 14 | Tiel-Coder-35B-A3B-MLX-oQ4e-MTP | ✅ Done | 4.4 | - | 53 tests pass · 1M add 1.22s · 1M drain 4.02s · 413MB · tsc fails (27 errors)<br><br>**Serving:** 2.7h total · 16.36M prefill · 15.66M cached (95.7% eff.) · 461.0 TPS avg · 51.5 TPS gen |
+| 14 | Tiel-Coder-35B-A3B-MLX-oQ4e-MTP | ✅ Done | 4.4 | - | 53 tests pass · 1M add 1.22s · 1M drain 4.02s · 413MB · tsc fails (22 errors)<br><br>**Serving:** 2.7h total · 16.36M prefill · 15.66M cached (95.7% eff.) · 461.0 TPS avg · 51.5 TPS gen |
 
 ---
 
@@ -382,7 +382,7 @@
 
 **Completeness:** 5/5 — DESIGN.md (229 lines, genuinely reviewer-grade: architecture diagram, state-machine table, complexity table, edge-case guarantees, scalability discussion with honest cost analysis), full implementation (7 source modules), 53 tests across 2 suites. All prompt sections covered.
 
-**Correctness:** 4.5/5 — All 53 tests pass on first run, zero fixes needed. The reactive state machine (task's heap membership fully determined by state) is the cleanest design in the field. **However: `tsc --noEmit` fails with 27 errors** — `Task.deps` is typed `Set<TaskId>` but used as an array throughout (`push`, `splice`, `indexOf`, `map`), `Task<D>` incorrectly extends `TaskSpec<D>` with incompatible `deps` types, missing `setTimeout`/`clearTimeout` under the `ES2022` lib config, and readonly-property reassignment in `resetClock()`. Runtime works because `tsx` strips types without checking — the model never typechecked its own code.
+**Correctness:** 4.5/5 — All 53 tests pass on first run, zero fixes needed. The reactive state machine (task's heap membership fully determined by state) is the cleanest design in the field. **However: `tsc --noEmit` fails with 22 errors** — `Task.deps` is typed `Set<TaskId>` but used as an array throughout (`push`, `splice`, `indexOf`, `map`), `Task<D>` incorrectly extends `TaskSpec<D>` with incompatible `deps` types, missing `setTimeout`/`clearTimeout` under the `ES2022` lib config, and readonly-property reassignment in `resetClock()`. Runtime works because `tsx` strips types without checking — the model never typechecked its own code.
 
 **Production-readiness:** 4.5/5 — Two index-backed heaps (ready + time) with O(log n) `remove` via position map. Reactive `_setReady`/`_setWaiting`/`_setPending`/`_setRunning` transitions — membership can't drift. Id interning to cut string allocations. Injectable clock AND timers. Auto-timer (`_updateTimer`) with explicit non-recursion design. Cancel keeps records for inspection. Typed error hierarchy (7 classes). `toJSON()` serialization. `complete()` returns newly-runnable dependents.
 
@@ -400,13 +400,13 @@
 - Timer design with explicit non-recursion reasoning.
 
 **Notable weaknesses:**
-- **27 TypeScript errors** — the code never typechecked. `deps` typed as `Set` but used as `Array` throughout would be caught by any CI gate. Runtime-only correctness.
+- **22 TypeScript errors** — the code never typechecked. `deps` typed as `Set` but used as `Array` throughout would be caught by any CI gate. Runtime-only correctness.
 - No shipped 1M benchmark (I had to write one).
 - `_wouldCycle` rebuilds the edge map (`_edges()`) on every iteration of the DFS — O(V) allocation per visited node; the standalone `cycleDetection.ts` module exists but the scheduler doesn't use it (dead code).
 - `intern.ts` leak-by-design: the intern table grows unboundedly across the process lifetime and `unintern()` is an identity function that doesn't restore number ids.
 - `DuplicatedDependencyError` and `cycleDetection.ts` are defined but never used.
 
-**Verdict:** Third place, narrowly behind Qwen3.8-27B. The reactive two-heap design is the most elegant architecture in the field — membership-can't-drift is a genuinely senior insight — and my benchmark confirms the best add throughput and memory footprint of all 12 models. But the 27 unfixable-at-a-glance type errors mean the code was never compiled: `tsx`-only execution hid a `Set`-vs-`Array` type confusion that any `tsc` pass would have caught. Served at 461 TPS avg / 51.5 TPS gen in 2.7h — fast and efficient. If Tiel had run `tsc` once, this would have challenged Agnes for the top spot.
+**Verdict:** Third place, narrowly behind Qwen3.8-27B. The reactive two-heap design is the most elegant architecture in the field — membership-can't-drift is a genuinely senior insight — and my benchmark confirms the best add throughput and memory footprint of all 12 models. But the 22 type errors mean the code was never compiled: `tsx`-only execution hid a `Set`-vs-`Array` type confusion that any `tsc` pass would have caught. Served at 461 TPS avg / 51.5 TPS gen in 2.7h — fast and efficient. If Tiel had run `tsc` once, this would have challenged Agnes for the top spot.
 
 </details>
 
@@ -434,7 +434,7 @@
 **Key takeaways:**
 
 - **Agnes-3.0-Flash wins decisively** — the only submission with a complete 1M benchmark (add 1.25s + execute 0.80s + audit 0.39s), an O(1) cycle fast path via longest-path levels, an `audit()` self-verification API, and honest failure-mode documentation. Every test passed on first run.
-- **Tiel-Coder debuts at #3** — the most elegant architecture in the field (reactive state machine where heap membership ≡ task state) plus the fastest 1M add (822k ops/s) and lowest memory (413MB). Held back by 27 TypeScript errors: the code never passed `tsc`, and a `Set`-vs-`Array` type confusion on `deps` runs only because `tsx` skips typechecking.
+- **Tiel-Coder debuts at #3** — the most elegant architecture in the field (reactive state machine where heap membership ≡ task state) plus the fastest 1M add (822k ops/s) and lowest memory (413MB). Held back by 22 TypeScript errors: the code never passed `tsc`, and a `Set`-vs-`Array` type confusion on `deps` runs only because `tsx` skips typechecking.
 - **Qwen3.8-27B takes depth** — best diagnostic APIs (`selfCheck`, `validateGraph`, concrete cycle paths), but its O(n) `heap.remove()` showed in a 44.9s diamond-drain.
 - **The K2 Horizon failures are environmental** — both the 7B and 36B variants died writing JSON files mid-generation, producing empty `task-scheduler.ts` files. The delivered fragments (IndexedHeap with position-map, granular error hierarchy) suggest the model had strong design instincts but the serving stack couldn't complete the output.
 - **Serving speed ≠ code quality** — KAT-Coder served at 708 TPS (fastest) but produced an O(n)-per-retrieval heap; Agnes served at 74.6 TPS (slowest but one) and produced the best code. NeoHorse spent 9 hours and delivered a crashing heap.

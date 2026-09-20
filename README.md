@@ -1,6 +1,6 @@
 # TypeScript Head-to-Head: Local LLM Coding Benchmark
 
-**12 local models. One prompt. One production-grade TypeScript task scheduler. Zero cloud APIs.**
+**13 local models. One prompt. One production-grade TypeScript task scheduler. Zero cloud APIs.**
 
 Every model ran locally via [oMLX](https://github.com/ml-explore) on an Apple M3 Max (64 GB), one at a time, same prompt, same review process. Each submission was then **actually executed** — tests run, benchmarks measured, TypeScript compiled, bugs hunted — not just read.
 
@@ -16,7 +16,7 @@ Full text: [PROMPT.md](PROMPT.md)
 |---|-------|-----------|-------|--------|-------|
 | 🥇 | **Agnes-3.0-Flash-qwen35-oQ4e** | **29.5** | 26/26 ✅ | 1.25s | O(1) cycle fast path, `audit()` self-verification, full 1M add+exec+audit benchmark |
 | 🥈 | Qwen3.8-27B-oQ4e-mtp | 28.5 | 56/56 ✅ | 1.0s | Best diagnostic APIs; O(n) heap remove showed in 44.9s diamond drain |
-| 🥉 | Tiel-Coder-35B-A3B-MLX-oQ4e-MTP | 27.5 | 53/53 ✅ | 1.22s | Most elegant architecture + fastest add (822k ops/s); **27 tsc errors — never compiled** |
+| 🥉 | Tiel-Coder-35B-A3B-MLX-oQ4e-MTP | 27.5 | 53/53 ✅ | 1.22s | Most elegant architecture + fastest add (822k ops/s); **22 tsc errors — never compiled** |
 | 4 | Nex-N2.5-mini-oQ4 | 26 | 29/29 ✅ | 1.1s | Clean two-heap design, 50k-deep cycle test |
 | 5= | Qwen3.6-35B-A3B-oQ4e-mtp | 23.5 | 90/90 ✅ | 1.5s | Broadest test suite; cancel-during-running gap |
 | 5= | BigBang-v1-MLX-oQ4e | 23.5 | 30/30 ✅ | ~2.3s | Fastest serving (418 TPS); cycles creatable via updateTask |
@@ -35,7 +35,7 @@ Scoring: six categories × 5 points (completeness, correctness, production-readi
 
 **2. Most models never verified their own output.** Of 11 scored submissions:
 - 3 shipped code that fails its own tests (Muse: syntax error + 4 failures; NeoHorse: 13 failures; Ornith-9B: heap ordering bug)
-- 1 never compiled (Tiel: 27 `tsc` errors, hidden by `tsx` type-stripping)
+- 1 never compiled (Tiel: 22 `tsc` errors, hidden by `tsx` type-stripping)
 - Only 7 shipped a 1M benchmark; only Agnes tested add + execute + audit at that scale
 
 **3. The K2 Horizon failures are environmental, not model quality.** Both variants died writing JSON files mid-generation, leaving empty `task-scheduler.ts` files. The fragments that did land — an `IndexedHeap` with position-map index, the most granular error hierarchy in the field — suggest strong design instincts strangled by the serving stack.
