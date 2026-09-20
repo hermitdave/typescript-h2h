@@ -1,0 +1,19 @@
+{
+  "name": "in-memory-task-scheduler",
+  "version": "1.0.0",
+  "description": "Production-ready in-memory task scheduler with priorities, execution timestamps, dependency tracking, cycle detection, and dynamic updates.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "jest --config jest.config.js",
+    "test:stress": "node -r ts-node/register tests/stress.test.ts"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.12",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  }
+}

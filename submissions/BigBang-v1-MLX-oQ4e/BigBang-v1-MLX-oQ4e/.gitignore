@@ -1,0 +1,17 @@
+# build artifacts
+dist/
+*.js
+*.d.ts
+*.d.ts.map
+*.js.map
+
+# caches
+node_modules/.cache
+.cache
+*.swp
+*.swo
+
+# temp debug files
+tmp_*.js
+tmp_*.ts
+tmp_*.py

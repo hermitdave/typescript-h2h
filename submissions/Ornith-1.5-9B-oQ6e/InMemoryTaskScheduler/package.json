@@ -1,0 +1,41 @@
+{
+  "name": "in-memory-task-scheduler",
+  "version": "1.0.0",
+  "description": "Production-ready in-memory task scheduler supporting 1M tasks with priorities, execution timestamps, dependency tracking, cycle detection, dynamic updates, and efficient next-executable retrieval.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "scheduler",
+    "task",
+    "queue",
+    "dependency-graph",
+    "priority-queue",
+    "in-memory",
+    "typescript"
+  ],
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

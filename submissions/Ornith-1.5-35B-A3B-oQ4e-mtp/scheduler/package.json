@@ -1,0 +1,20 @@
+{
+  "name": "in-memory-task-scheduler",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Production-ready in-memory task scheduler (TypeScript) supporting ~1M tasks with priorities, execution timestamps, dependency tracking, dynamic updates, cycle detection, and efficient next-executable retrieval.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "bench": "tsx bench/bench.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

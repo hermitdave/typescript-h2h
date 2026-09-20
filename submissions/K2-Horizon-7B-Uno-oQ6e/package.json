@@ -1,0 +1,27 @@
+{
+  "name": "in-memory-task-scheduler",
+  "version": "1.0.0",
+  "description": "Production-ready in-memory task scheduler: 1M+ tasks, priorities, execution timestamps, dependency DAG, dynamic updates, cycle detection, O(log n) next-executable retrieval",
+  "main": "./src/index.ts",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node --test",
+    "typecheck": "tsc --noEmit",
+    "stress": "node scripts/benchmark.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "private": "true",
+  "type": "module",
+  "exports": "./src/index.ts",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
