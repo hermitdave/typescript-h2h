@@ -1,4 +1,4 @@
-# JavaScript Head-to-Head: Local LLM Coding Benchmark
+# TypeScript Head-to-Head: Local LLM Coding Benchmark
 
 **12 local models. One prompt. One production-grade TypeScript task scheduler. Zero cloud APIs.**
 
