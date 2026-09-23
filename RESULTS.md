@@ -24,7 +24,7 @@
 | 11 | Qwen3.6-35B-A3B-oQ4e-mtp | ✅ Done | 8.6 | - | 90 tests pass · 1M add 1.5s · 1M sparse dep 2.6s<br><br>**Serving:** 3h total · 12M prefill · 11.4M cached (94.8% eff.) · 199.1 TPS avg · 31.9 TPS gen |
 | 12 | Qwen3.8-27B-oQ4e-mtp | ✅ Done | 48.1 | - | 56 tests pass · 1M ingest 1.0s · 10k peeks <1ms · diamond drain 100k in 44.9s<br><br>**Serving:** 8h total · 22.26M prefill · 21.16M cached (95% eff.) · 74.6 TPS avg · 12.6 TPS gen |
 | 13 | hermitdave--K2-Horizon-7B-Uno-merged | ➖ Not run | - | - | Same model as #4 — the K2-Horizon-7B attempt (row 4) already used the Uno-merged weights. No separate run. |
-| 14 | Tiel-Coder-35B-A3B-MLX-oQ4e-MTP | ✅ Done | 4.4 | - | 53 tests pass · 1M add 1.22s · 1M drain 4.02s · 413MB · tsc fails (22 errors)<br><br>**Serving:** 2.7h total · 16.36M prefill · 15.66M cached (95.7% eff.) · 461.0 TPS avg · 51.5 TPS gen |
+| 15 | Qwen3-Coder-Next-oQ4 | ✅ Done | 9.9 | - | 47 tests pass · 1M add 2.12s · 1M exec 2.11s · 1467MB (highest) · tsc clean<br><br>**Serving:** 0.75h total · 5.40M prefill · 5.01M cached (92.7% eff.) · 459.0 TPS avg · 40.9 TPS gen |
 
 ---
 
@@ -406,7 +406,36 @@
 - `intern.ts` leak-by-design: the intern table grows unboundedly across the process lifetime and `unintern()` is an identity function that doesn't restore number ids.
 - `DuplicatedDependencyError` and `cycleDetection.ts` are defined but never used.
 
-**Verdict:** Third place, narrowly behind Qwen3.8-27B. The reactive two-heap design is the most elegant architecture in the field — membership-can't-drift is a genuinely senior insight — and my benchmark confirms the best add throughput and memory footprint of all 12 models. But the 22 type errors mean the code was never compiled: `tsx`-only execution hid a `Set`-vs-`Array` type confusion that any `tsc` pass would have caught. Served at 461 TPS avg / 51.5 TPS gen in 2.7h — fast and efficient. If Tiel had run `tsc` once, this would have challenged Agnes for the top spot.
+**Verdict:** Third place, narrowly behind Qwen3.8-27B. The reactive two-heap design is the most elegant architecture in the field — membership-can't-drift is a genuinely senior insight — and my benchmark confirms the best add throughput and memory footprint of all 12 models. But the 22 unfixable-at-a-glance type errors mean the code was never compiled: `tsx`-only execution hid a `Set`-vs-`Array` type confusion that any `tsc` pass would have caught. Served at 461 TPS avg / 51.5 TPS gen in 2.7h — fast and efficient. If Tiel had run `tsc` once, this would have challenged Agnes for the top spot.
+
+### Qwen3-Coder-Next-oQ4 ✅
+
+**Completeness:** 5/5 — README.md (106 lines, serves as design doc with architecture diagram, data-structure notes, complexity table, memory estimate, edge-case list), full implementation (6 source modules), 47 tests across 3 suites. All prompt sections covered.
+
+**Correctness:** 4/5 — All 47 tests pass. `tsc --noEmit` clean (0 errors) — the only submission besides Agnes, Nex, and BigBang with a clean compile. Pairing heap with O(1) amortized insert/extract. DependencyGraph with Kahn's algorithm for cycle detection. **But: `PairingHeap.remove()` is broken** — the code ships a comment admitting it: "simplified removal that doesn't maintain heap property... For production, would need to track parent pointers or rebuild." It deletes from the node map without removing from the heap, leaving stale entries that `getNextExecutable` must skip lazily. **And: `wouldCreateCycle` caps DFS depth at 1000** — a 1M-task chain with a closing edge would not have its cycle detected. **And: `completeTask` doesn't remove dependency edges** — it decrements in-degree so `isReady()` works, but `getDependencies()` still reports stale edges. **And: README claims ~250MB for 1M tasks** — actual is ~1.5GB, off by 6x.
+
+**Production-readiness:** 3.5/5 — Pairing heap gives O(1) amortized decrease-key (best theoretical bounds in the field). **But**: the lazy `remove()` means the heap grows with stale entries under churn — every `removeTask` leaves garbage until the task surfaces at the top and gets skipped. 1467MB heapUsed for 1M tasks is the **highest memory of any submission** (Tiel: 413MB, Agnes: 718MB). README's 250MB estimate is wrong by 6x. The 1000-depth cycle cap is a real correctness boundary. No injectable clock.
+
+**Test coverage:** 4/5 — 47 tests across 3 suites: TaskScheduler (priority, timestamps, dependencies, cycle detection, dynamic updates, 1M stress test, edge cases), PairingHeap (sorted order, duplicate rejection, remove, clear, stress), DependencyGraph (add/remove deps, in-degree, cycle detection, path finding). Good breadth. Missing: negative priorities, boundary-inclusive executeAt, deep chains (>1000) for cycle detection.
+
+**Edge cases:** 3.5/5 — Handles empty scheduler, task not found, self-dependency, circular dependencies via updateTask, duplicate ids, rapid updates, 1M stress test. Missing: negative priorities, boundary times, deep cycles beyond the 1000-depth cap.
+
+**Scalability:** 3.5/5 — **My 1M benchmark: add 2.12s, exec 2.11s, 1467MB heapUsed.** Fast add/exec but the highest memory of the field — each PairingHeap node is a full object with children array + parent pointer, and the lazy `remove()` leaves stale entries. The model's own test (using `removeTask` pattern) reports 3.06s add / 3.50s extract. Cycle detection on `addDependency` uses Kahn's algorithm correctly but `wouldCreateCycle` is capped at 1000 depth.
+
+**Notable strengths:**
+- Cleanest compile in the field: `tsc --noEmit` passes with zero errors — the only submissions to achieve this are Agnes, Nex, BigBang, and Qwen3-Coder-Next.
+- Pairing heap gives the best theoretical complexity: O(1) amortized insert and decrease-key.
+- README is a genuine design document with architecture diagram, data-structure rationale, complexity table, and edge-case list.
+- 47 tests across 3 well-separated suites with a 1M stress test included.
+- Kahn's algorithm correctly detects cycles on edge insertion.
+
+**Notable weaknesses:**
+- **`PairingHeap.remove()` is broken** — admits in a comment it "doesn't maintain heap property." Lazy deletion works around it but leaves stale entries that waste memory and require skipping.
+- **Highest memory of the field** — 1467MB for 1M tasks vs Agnes's 718MB and Tiel's 413MB. README's 250MB estimate is off by 6x.
+- **`wouldCreateCycle` depth cap at 1000** — real correctness bug for deep dependency chains.
+- **`completeTask` leaves stale dependency edges** — in-degree is decremented correctly, but the `dependencies` map still lists the completed task.
+
+**Verdict:** Ties for fifth with Qwen3.6-35B and BigBang. The cleanest compile and best theoretical heap complexity in the field, held back by a broken `remove()` (admitted in-code), the highest memory footprint, and a cycle-detection depth cap that fails on deep graphs. Served at 459 TPS / 40.9 TPS gen in 0.75h — fast serving, fast benchmark, but the memory and lazy-deletion issues keep it out of the top tier.
 
 </details>
 
@@ -421,11 +450,12 @@
 | 3 | Tiel-Coder-35B-A3B-MLX-oQ4e-MTP | 5 | 4.5 | 4.5 | 4.5 | 4.5 | 4.5 | 27.5 |
 | 4 | Nex-N2.5-mini-oQ4 | 4 | 4.5 | 4 | 4.5 | 4.5 | 4.5 | 26 |
 | 5 | Qwen3.6-35B-A3B-oQ4e-mtp | 4 | 4 | 4 | 4 | 4 | 3.5 | 23.5 |
-| 6 | BigBang-v1-MLX-oQ4e | 4 | 4 | 3.5 | 4 | 4 | 4 | 23.5 |
-| 7 | Ornith-1.5-35B-A3B-oQ4e-mtp | 5 | 3.5 | 4 | 3.5 | 3.5 | 3.5 | 23 |
-| 8 | KAT-Coder-V2.5-Dev-VL-oQ4e-mtp | 4 | 3.5 | 3 | 3.5 | 3.5 | 2 | 19.5 |
-| 9 | Muse-Glimmer-30B-oQ4e | 4 | 2 | 3 | 3 | 3 | 2 | 17 |
-| 10 | NeoHorse-1-9B-oQ6e | 3 | 1.5 | 2 | 3 | 2.5 | 1.5 | 13.5 |
+| 5 | BigBang-v1-MLX-oQ4e | 4 | 4 | 3.5 | 4 | 4 | 4 | 23.5 |
+| 5 | Qwen3-Coder-Next-oQ4 | 5 | 4 | 3.5 | 4 | 3.5 | 3.5 | 23.5 |
+| 8 | Ornith-1.5-35B-A3B-oQ4e-mtp | 5 | 3.5 | 4 | 3.5 | 3.5 | 3.5 | 23 |
+| 9 | KAT-Coder-V2.5-Dev-VL-oQ4e-mtp | 4 | 3.5 | 3 | 3.5 | 3.5 | 2 | 19.5 |
+| 10 | Muse-Glimmer-30B-oQ4e | 4 | 2 | 3 | 3 | 3 | 2 | 17 |
+| 11 | NeoHorse-1-9B-oQ6e | 3 | 1.5 | 2 | 3 | 2.5 | 1.5 | 13.5 |
 | — | K2-Horizon-7B-Uno-oQ6e (= row 13) | — | — | — | — | — | — | Failed |
 | — | K2-Horizon-MoVA-36B-A4B-oQ4e | — | — | — | — | — | — | Failed |
 
